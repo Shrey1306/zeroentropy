@@ -150,6 +150,40 @@ Sophisticated analysis comparing traditional vs AI-powered approaches:
 - **Cross-functional Reports**: Integrated reporting across departments
 - **Trend Analysis**: Long-term trend identification and strategic implications
 
+## 🌐 Deployment
+
+### Vercel Deployment
+
+1. **Connect your repository** to Vercel
+2. **Configure environment variables** in Vercel dashboard:
+   ```
+   ZEROENTROPY_API_KEY=your_zeroentropy_api_key
+   CLAUDE_API_KEY=your_anthropic_claude_api_key
+   ```
+3. **Deploy** - Vercel will automatically build and deploy
+
+### Environment Variables
+
+| Variable | Description | Required |
+|----------|-------------|----------|
+| `ZEROENTROPY_API_KEY` | Your ZeroEntropy API key | Yes (for real data) |
+| `CLAUDE_API_KEY` | Your Anthropic Claude API key | Yes (for comparison) |
+
+### Build Configuration
+
+The app is configured for Vercel with:
+- **Framework**: Next.js 14.2.30
+- **Build Command**: `npm run build`
+- **Output Directory**: `.next`
+- **Node Version**: 18.x (auto-detected)
+
+### Security
+
+- **API Keys**: Stored securely in environment variables
+- **CORS**: Configured for production domains
+- **Headers**: Security headers configured in `vercel.json`
+- **Dependencies**: Updated to latest secure versions
+
 ## 📁 Project Structure
 
 ```
