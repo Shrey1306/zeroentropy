@@ -1,4 +1,4 @@
-import { zeroEntropyClient } from '../lib/zeroentropy'
+import { zeroEntropyClient } from 'lib/zeroentropy'
 
 export interface ComparisonResult {
   answer: string
