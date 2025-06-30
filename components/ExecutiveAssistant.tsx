@@ -7,7 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { OmniInput } from '@/components/ui/input'
 import { ExecutiveProgress } from '@/components/ui/progress'
 import { FileText, MessageSquare, Cloud, Briefcase, Activity, Database, Zap, AlertCircle, CheckCircle, Clock, Search, TrendingUp, Users } from 'lucide-react'
-import { zeroEntropyClient, type SynthesisResult, type StatusResponse } from 'lib/zeroentropy'
+import { zeroEntropyClient, type SynthesisResult, type StatusResponse } from '../lib/zeroentropy'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Progress } from '@/components/ui/progress'
 

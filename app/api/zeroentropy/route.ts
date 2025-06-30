@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { ZeroEntropyClient } from 'lib/zeroentropy'
+import { ZeroEntropyClient } from '../../../lib/zeroentropy'
 
 export async function POST(req: NextRequest) {
   const { query } = await req.json()
