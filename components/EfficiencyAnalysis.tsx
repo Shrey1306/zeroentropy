@@ -4,8 +4,8 @@ import { motion } from 'framer-motion'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { ExecutiveProgress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
-import { Clock, DollarSign, TrendingUp, Users, FileText, Zap, Database, Search, Brain, Network, Cpu, BarChart3 } from 'lucide-react'
-import { useState, useRef } from 'react'
+import { Clock, DollarSign, TrendingUp, Users, FileText, Zap, Database, Search, Brain, Network, Cpu, BarChart3, Loader2, CheckCircle, AlertCircle, Play } from 'lucide-react'
+import { useState, useRef, useEffect } from 'react'
 import { comparisonEngines, ComparisonResult } from '@/utils/comparisonEngines'
 
 const architectureComponents = [
@@ -94,25 +94,155 @@ const metrics = [
   }
 ]
 
+interface EngineStatus {
+  status: 'idle' | 'starting' | 'searching' | 'processing' | 'completed' | 'error'
+  progress: number
+  message: string
+  startTime?: number
+  endTime?: number
+}
+
 const EfficiencyAnalysis = () => {
   const [query, setQuery] = useState('What are our biggest risks right now?')
   const [isRunning, setIsRunning] = useState(false)
   const [results, setResults] = useState<{ [engine: string]: ComparisonResult }>({})
+  const [engineStatuses, setEngineStatuses] = useState<{ [engine: string]: EngineStatus }>({})
+  const [showProgress, setShowProgress] = useState(false)
+
+  // Initialize engine statuses
+  useEffect(() => {
+    const initialStatuses: { [engine: string]: EngineStatus } = {}
+    comparisonEngines.forEach(engine => {
+      initialStatuses[engine.name] = {
+        status: 'idle',
+        progress: 0,
+        message: 'Ready to run'
+      }
+    })
+    setEngineStatuses(initialStatuses)
+  }, [])
+
+  const updateEngineStatus = (engineName: string, status: Partial<EngineStatus>) => {
+    setEngineStatuses(prev => ({
+      ...prev,
+      [engineName]: { ...prev[engineName], ...status }
+    }))
+  }
+
+  const simulateProgress = (engineName: string, duration: number = 2000) => {
+    const startTime = Date.now()
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startTime
+      const progress = Math.min((elapsed / duration) * 100, 100)
+      
+      updateEngineStatus(engineName, { progress })
+      
+      if (progress >= 100) {
+        clearInterval(interval)
+      }
+    }, 50)
+    
+    return interval
+  }
 
   const handleRun = async () => {
     setIsRunning(true)
     setResults({})
-    const promises = comparisonEngines.map(async (engine) => {
-      const result = await engine.run(query)
-      return { name: engine.name, result }
+    setShowProgress(true)
+    
+    // Reset all engine statuses
+    comparisonEngines.forEach(engine => {
+      updateEngineStatus(engine.name, {
+        status: 'starting',
+        progress: 0,
+        message: 'Initializing...',
+        startTime: Date.now()
+      })
     })
+
+    const promises = comparisonEngines.map(async (engine, index) => {
+      try {
+        // Simulate different start times for visual effect
+        await new Promise(resolve => setTimeout(resolve, index * 200))
+        
+        updateEngineStatus(engine.name, {
+          status: 'searching',
+          message: 'Searching documents...'
+        })
+        
+        // Start progress simulation
+        const progressInterval = simulateProgress(engine.name, 1500 + Math.random() * 1000)
+        
+        updateEngineStatus(engine.name, {
+          status: 'processing',
+          message: 'Processing query...'
+        })
+        
+        const result = await engine.run(query)
+        
+        clearInterval(progressInterval)
+        
+        updateEngineStatus(engine.name, {
+          status: 'completed',
+          progress: 100,
+          message: 'Completed successfully',
+          endTime: Date.now()
+        })
+        
+        return { name: engine.name, result }
+      } catch (error) {
+        updateEngineStatus(engine.name, {
+          status: 'error',
+          message: `Error: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          endTime: Date.now()
+        })
+        return { name: engine.name, result: null }
+      }
+    })
+
     const allResults = await Promise.all(promises)
     const resultsObj: { [engine: string]: ComparisonResult } = {}
     allResults.forEach(({ name, result }) => {
-      resultsObj[name] = result
+      if (result) {
+        resultsObj[name] = result
+      }
     })
     setResults(resultsObj)
     setIsRunning(false)
+  }
+
+  const getStatusIcon = (status: EngineStatus['status']) => {
+    switch (status) {
+      case 'idle':
+        return <Play className="h-4 w-4 text-gray-400" />
+      case 'starting':
+      case 'searching':
+      case 'processing':
+        return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 text-green-400" />
+      case 'error':
+        return <AlertCircle className="h-4 w-4 text-red-400" />
+      default:
+        return <Play className="h-4 w-4 text-gray-400" />
+    }
+  }
+
+  const getStatusColor = (status: EngineStatus['status']) => {
+    switch (status) {
+      case 'idle':
+        return 'text-gray-400'
+      case 'starting':
+      case 'searching':
+      case 'processing':
+        return 'text-blue-400'
+      case 'completed':
+        return 'text-green-400'
+      case 'error':
+        return 'text-red-400'
+      default:
+        return 'text-gray-400'
+    }
   }
 
   return (
@@ -156,37 +286,137 @@ const EfficiencyAnalysis = () => {
           disabled={isRunning}
           placeholder="Enter your executive query..."
         />
-        <button onClick={handleRun} disabled={isRunning || !query.trim()} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-          {isRunning ? 'Running...' : 'Run Comparison'}
+        <button 
+          onClick={handleRun} 
+          disabled={isRunning || !query.trim()} 
+          className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+        >
+          {isRunning ? (
+            <>
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Running...
+            </>
+          ) : (
+            <>
+              <Play className="h-4 w-4" />
+              Run Comparison
+            </>
+          )}
         </button>
       </div>
 
+      {/* Real-time Progress Section */}
+      {showProgress && (
+        <motion.div
+          initial={{ opacity: 0, height: 0 }}
+          animate={{ opacity: 1, height: 'auto' }}
+          exit={{ opacity: 0, height: 0 }}
+          className="space-y-4"
+        >
+          <h3 className="text-xl font-semibold text-gray-200 text-center">
+            Live Engine Progress
+          </h3>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {comparisonEngines.map(engine => {
+              const status = engineStatuses[engine.name]
+              const duration = status.startTime && status.endTime 
+                ? ((status.endTime - status.startTime) / 1000).toFixed(2)
+                : status.startTime 
+                ? ((Date.now() - status.startTime) / 1000).toFixed(2)
+                : '0.00'
+
+              return (
+                <Card key={engine.name} className="bg-gray-800/60 border-gray-700">
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {getStatusIcon(status?.status || 'idle')}
+                        <div>
+                          <CardTitle className="text-lg text-gray-200">{engine.name}</CardTitle>
+                          <CardDescription className={`text-sm ${getStatusColor(status?.status || 'idle')}`}>
+                            {status?.message || 'Ready'}
+                          </CardDescription>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className="text-sm text-gray-400">Duration</div>
+                        <div className="text-lg font-mono text-blue-400">{duration}s</div>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-400">Progress</span>
+                        <span className="text-gray-200">{Math.round(status?.progress || 0)}%</span>
+                      </div>
+                      <ExecutiveProgress 
+                        value={status?.progress || 0} 
+                        className="h-2"
+                      />
+                    </div>
+                  </CardContent>
+                </Card>
+              )
+            })}
+          </div>
+        </motion.div>
+      )}
+
       {/* Results Table */}
       {Object.keys(results).length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-gray-800/60 border border-gray-700 rounded-xl">
-            <thead>
-              <tr>
-                <th className="px-4 py-2 text-left text-gray-300">Engine</th>
-                <th className="px-4 py-2 text-left text-gray-300">Response Time (s)</th>
-                <th className="px-4 py-2 text-left text-gray-300">Cost ($)</th>
-                <th className="px-4 py-2 text-left text-gray-300">Docs Used</th>
-                <th className="px-4 py-2 text-left text-gray-300">Answer</th>
-              </tr>
-            </thead>
-            <tbody>
-              {comparisonEngines.map(engine => (
-                <tr key={engine.name} className="border-t border-gray-700">
-                  <td className="px-4 py-2 font-semibold text-blue-400">{engine.name}</td>
-                  <td className="px-4 py-2">{results[engine.name]?.time?.toFixed(2) ?? '—'}</td>
-                  <td className="px-4 py-2">{results[engine.name]?.cost?.toFixed(4) ?? '—'}</td>
-                  <td className="px-4 py-2">{results[engine.name]?.docsUsed ?? '—'}</td>
-                  <td className="px-4 py-2 whitespace-pre-line text-gray-200 max-w-xl">{results[engine.name]?.answer ?? '—'}</td>
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="space-y-4"
+        >
+          <h3 className="text-xl font-semibold text-gray-200 text-center">
+            Comparison Results
+          </h3>
+          
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-gray-800/60 border border-gray-700 rounded-xl">
+              <thead>
+                <tr>
+                  <th className="px-4 py-2 text-left text-gray-300">Engine</th>
+                  <th className="px-4 py-2 text-left text-gray-300">Response Time (s)</th>
+                  <th className="px-4 py-2 text-left text-gray-300">Cost ($)</th>
+                  <th className="px-4 py-2 text-left text-gray-300">Docs Used</th>
+                  <th className="px-4 py-2 text-left text-gray-300">Answer</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {comparisonEngines.map(engine => {
+                  const result = results[engine.name]
+                  const status = engineStatuses[engine.name]
+                  const duration = status.startTime && status.endTime 
+                    ? ((status.endTime - status.startTime) / 1000).toFixed(2)
+                    : '—'
+
+                  return (
+                    <tr key={engine.name} className="border-t border-gray-700">
+                      <td className="px-4 py-2 font-semibold text-blue-400 flex items-center gap-2">
+                        {getStatusIcon(status?.status || 'idle')}
+                        {engine.name}
+                      </td>
+                      <td className="px-4 py-2">{duration}</td>
+                      <td className="px-4 py-2">{result?.cost?.toFixed(4) ?? '—'}</td>
+                      <td className="px-4 py-2">{result?.docsUsed ?? '—'}</td>
+                      <td className="px-4 py-2 whitespace-pre-line text-gray-200 max-w-xl">
+                        {result?.answer ?? (
+                          <span className="text-red-400">
+                            {status?.status === 'error' ? status.message : 'No result'}
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </motion.div>
       )}
 
       {/* Architecture Components */}
