@@ -6,6 +6,7 @@ import { ExecutiveProgress } from '@/components/ui/progress'
 import { Button } from '@/components/ui/button'
 import { Clock, DollarSign, TrendingUp, Users, FileText, Zap, Database, Search, Brain, Network, Cpu, BarChart3 } from 'lucide-react'
 import { useState, useRef } from 'react'
+import { comparisonEngines, ComparisonResult } from '@/utils/comparisonEngines'
 
 const architectureComponents = [
   {
@@ -96,44 +97,21 @@ const metrics = [
 const EfficiencyAnalysis = () => {
   const [query, setQuery] = useState('What are our biggest risks right now?')
   const [isRunning, setIsRunning] = useState(false)
-  const [zeTime, setZeTime] = useState(0)
-  const [zeResult, setZeResult] = useState<string | null>(null)
-  const zeTimer = useRef<NodeJS.Timeout | null>(null)
-
-  // Run ZeroEntropy pipeline (real API call)
-  const runZeroEntropy = async (q: string) => {
-    setZeTime(0)
-    setZeResult(null)
-    return new Promise<number>(async resolve => {
-      let t = 0
-      zeTimer.current = setInterval(() => setZeTime(++t / 10), 100)
-      const start = Date.now()
-      try {
-        const res = await fetch('/api/zeroentropy', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ query: q })
-        })
-        const data = await res.json()
-        if (zeTimer.current) clearInterval(zeTimer.current)
-        const elapsed = (Date.now() - start) / 1000
-        setZeTime(elapsed)
-        setZeResult(data.synthesis || 'No result')
-        resolve(elapsed)
-      } catch (e) {
-        if (zeTimer.current) clearInterval(zeTimer.current)
-        setZeTime(0)
-        setZeResult('Error: Could not reach ZeroEntropy API')
-        resolve(0)
-      }
-    })
-  }
+  const [results, setResults] = useState<{ [engine: string]: ComparisonResult }>({})
 
   const handleRun = async () => {
     setIsRunning(true)
-    setZeTime(0)
-    setZeResult(null)
-    await runZeroEntropy(query)
+    setResults({})
+    const promises = comparisonEngines.map(async (engine) => {
+      const result = await engine.run(query)
+      return { name: engine.name, result }
+    })
+    const allResults = await Promise.all(promises)
+    const resultsObj: { [engine: string]: ComparisonResult } = {}
+    allResults.forEach(({ name, result }) => {
+      resultsObj[name] = result
+    })
+    setResults(resultsObj)
     setIsRunning(false)
   }
 
@@ -179,23 +157,37 @@ const EfficiencyAnalysis = () => {
           placeholder="Enter your executive query..."
         />
         <button onClick={handleRun} disabled={isRunning || !query.trim()} className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg">
-          {isRunning ? 'Running...' : 'Run Analysis'}
+          {isRunning ? 'Running...' : 'Run Comparison'}
         </button>
       </div>
 
-      {/* ZeroEntropy Result */}
-      <div className="max-w-2xl mx-auto">
-        <div className="bg-gray-800/60 border border-gray-700 rounded-xl p-6">
-          <div className="flex items-center gap-2 mb-2">
-            <svg className="h-6 w-6 text-green-400" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12c0 4.97-4.03 9-9 9s-9-4.03-9-9 4.03-9 9-9 9 4.03 9 9z" /></svg>
-            <span className="text-gray-300">{zeTime.toFixed(1)}s</span>
-            {isRunning && <span className="ml-2 animate-pulse text-xs text-green-400">Running...</span>}
-          </div>
-          <div className="min-h-[60px] text-gray-300 text-sm whitespace-pre-line">
-            {zeResult || (isRunning ? 'Processing...' : '—')}
-          </div>
+      {/* Results Table */}
+      {Object.keys(results).length > 0 && (
+        <div className="overflow-x-auto">
+          <table className="min-w-full bg-gray-800/60 border border-gray-700 rounded-xl">
+            <thead>
+              <tr>
+                <th className="px-4 py-2 text-left text-gray-300">Engine</th>
+                <th className="px-4 py-2 text-left text-gray-300">Response Time (s)</th>
+                <th className="px-4 py-2 text-left text-gray-300">Cost ($)</th>
+                <th className="px-4 py-2 text-left text-gray-300">Docs Used</th>
+                <th className="px-4 py-2 text-left text-gray-300">Answer</th>
+              </tr>
+            </thead>
+            <tbody>
+              {comparisonEngines.map(engine => (
+                <tr key={engine.name} className="border-t border-gray-700">
+                  <td className="px-4 py-2 font-semibold text-blue-400">{engine.name}</td>
+                  <td className="px-4 py-2">{results[engine.name]?.time?.toFixed(2) ?? '—'}</td>
+                  <td className="px-4 py-2">{results[engine.name]?.cost?.toFixed(4) ?? '—'}</td>
+                  <td className="px-4 py-2">{results[engine.name]?.docsUsed ?? '—'}</td>
+                  <td className="px-4 py-2 whitespace-pre-line text-gray-200 max-w-xl">{results[engine.name]?.answer ?? '—'}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
-      </div>
+      )}
 
       {/* Architecture Components */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-12">
