@@ -5,7 +5,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import ExecutiveAssistant from '@/components/ExecutiveAssistant'
 import EfficiencyAnalysis from '@/components/EfficiencyAnalysis'
 import FloatingElements from '@/components/FloatingElements'
-import { zeroEntropyClient, type SynthesisResult } from '@/lib/zeroentropy'
+import { zeroEntropyClient, type SynthesisResult } from '../lib/zeroentropy'
 
 export default function Home() {
   const [documentsLoaded, setDocumentsLoaded] = useState(false)
